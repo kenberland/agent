@@ -13,7 +13,7 @@ class EmailAgent
   def initialize
     @csv_file_name = ARGV.shift
     raise "Need input file!" unless @csv_file_name
-    @db = SQLite3::Database.new "agent.db"
+    @db = SQLite3::Database.new "db/agent.db"
     puts_table_rows_confirmation
     instance_variables = %w/@full_name @username/
     instance_variables.each do |v| 

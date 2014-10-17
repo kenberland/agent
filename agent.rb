@@ -115,7 +115,7 @@ class EmailAgent
 
   def create_rich_message msg
     # binding.pry
-    msg.split(/\n/).map{|e| "<div>#{ActionView::Base.new.word_wrap e}<br /></div>"}.join("\n")
+    msg.split(/\n/).map{|e| "<div>#{ActionView::Base.new.word_wrap e}</div><br />"}.join("\n")
   end
 
   def construct_email message
@@ -144,7 +144,7 @@ begin
     next unless agent.can_send?
     puts "*" * 40
     puts agent.current_message.to_s
-    print "Send to #{agent.current_message.to} ( #{agent.count_of_emails_to_company} emails to #{agent.current_company} )? (y/n): "
+    print "Send to #{agent.current_message.to.first} ( #{agent.count_of_emails_to_company} emails to #{agent.current_company} )? (y/n): "
     confirm = gets.chomp.downcase
     #STDIN.noecho(&:gets).chop.downcase
 

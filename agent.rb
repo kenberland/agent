@@ -5,6 +5,8 @@ require 'net/smtp'
 require 'sqlite3'
 require 'date'
 require 'mail'
+require 'pry'
+require 'action_view'
 
 class EmailAgent
 
@@ -49,7 +51,7 @@ class EmailAgent
         smtp.send_message(@current_message.to_s, @username, @current_message.to)
       end
       record_sending_in_db
-      puts "Sent email to #{@current_message_to}"
+      puts "Sent email to #{@current_message.to}"
     rescue Exception => e
       puts "EROR SENDING: #{e.to_s}"
     end
@@ -62,8 +64,8 @@ class EmailAgent
   end
 
   def can_send?
-    @db.execute("select count(*) from sent where to_addr=?", @current_message_to) do |row|
-      puts "Already sent to #{@current_message_to}" if row.first != 0
+    @db.execute("select count(*) from sent where to_addr=?", @current_message.to.first) do |row|
+      puts "Already sent to #{@current_message.to.first}" if row.first != 0
       return row.first == 0 
     end
   end
@@ -71,7 +73,7 @@ class EmailAgent
   private 
 
   def record_sending_in_db
-    values = [DateTime.now.to_s, @current_company, @current_subject, @current_message_to, @current_message.to_s]
+    values = [DateTime.now.to_s, @current_company, @current_message.subject, @current_message.to, @current_message.to_s]
     @db.execute("insert into sent values ( ?, ?, ?, ?, ? )", values)
   end
   
@@ -92,7 +94,6 @@ class EmailAgent
   def get_password
     print "password: "
     STDIN.noecho(&:gets).chop
-    print "\n"
   end
 
   def set_enumerator
@@ -108,28 +109,40 @@ class EmailAgent
     set_enumerator
   end
   
-  def string_process_message msg
-    msg.gsub(/(\W\n)/,'\1'+"\n")
+  def create_plaintext_message msg
+    msg.gsub(/(\W\n)/,'\1'+"\n").split(/\n/).map{|e| ActionView::Base.new.word_wrap e}.join("\n")
+  end
+
+  def create_rich_message msg
+    # binding.pry
+    msg.split(/\n/).map{|e| "<div>#{ActionView::Base.new.word_wrap e}<br /></div>"}.join("\n")
   end
 
   def construct_email message
     mail = Mail.new
+    plain = Mail::Part.new
+    rich = Mail::Part.new
+    plain.body = create_plaintext_message message[:message]
+    rich.content_type = 'text/html; charset=UTF-8'
+    rich.body = create_rich_message message[:message]
+    mail.text_part = plain
+    mail.html_part = rich
+
     mail.from = @from_addr
     mail.to = message[:to]
     mail.subject = message[:subject]
-    mail.body = string_process_message message[:message]    
+
     mail
   end
 
 end
 
 agent = EmailAgent.new
-
 begin
   while agent.load_next_message
-
+    puts
     next unless agent.can_send?
-
+    puts "*" * 40
     puts agent.current_message.to_s
     print "Send to #{agent.current_message.to} ( #{agent.count_of_emails_to_company} emails to #{agent.current_company} )? (y/n): "
     confirm = gets.chomp.downcase

@@ -4,34 +4,40 @@ require 'csv'
 require 'net/smtp'
 require 'sqlite3'
 require 'date'
+require 'mail'
 
 class EmailAgent
 
   # CREATE TABLE sent( created_at datetime, company varchar(255), subject varchar(255), to_addr varchar(255) unique, message text );
-  attr_accessor :current_company, :current_message_to, :current_message_body
+  attr_accessor :current_company, :current_message
+  @@prompts = %w/@full_name @username/
 
   def initialize
-    @csv_file_name = ARGV.shift
-    raise "Need input file!" unless @csv_file_name
-    @db = SQLite3::Database.new "db/agent.db"
+    process_csv
+    open_database
     puts_table_rows_confirmation
-    instance_variables = %w/@full_name @username/
-    instance_variables.each do |v| 
+    @@prompts.each do |v| 
       v = v.to_sym
       instance_variable_set(v, get_value_for(v))
     end
+    @from_addr = @full_name + " " + "<" + @username + ">"
     @password = get_password
-    print "\n"
+  end
+
+  def open_database
+    @db = SQLite3::Database.new "db/agent.db"
+  end
+
+  def process_csv
+    @csv_file_name = ARGV.shift
+    raise "Need input file!" unless @csv_file_name
     read_and_parse_csv
   end
 
   def load_next_message
     message = @enumerator.next
-    @current_subject = message[:subject]
     @current_company = message[:company]
-    @current_message_to = /<(.*)>/.match(message[:to])[1]
-    @current_message_body = message[:message]
-    @current_message_string = construct_email(message)
+    @current_message = construct_email(message)
   end
 
   def send_current_message
@@ -40,7 +46,7 @@ class EmailAgent
       smtp = Net::SMTP.new 'smtp.gmail.com', 587
       smtp.enable_starttls
       smtp.start('grnds.com', @username, @password, :login) do |server|
-        smtp.send_message(@current_message_string, @username, @current_message_to)
+        smtp.send_message(@current_message.to_s, @username, @current_message.to)
       end
       record_sending_in_db
       puts "Sent email to #{@current_message_to}"
@@ -65,7 +71,7 @@ class EmailAgent
   private 
 
   def record_sending_in_db
-    values = [DateTime.now.to_s, @current_company, @current_subject, @current_message_to, @current_message_string]
+    values = [DateTime.now.to_s, @current_company, @current_subject, @current_message_to, @current_message.to_s]
     @db.execute("insert into sent values ( ?, ?, ?, ?, ? )", values)
   end
   
@@ -86,6 +92,7 @@ class EmailAgent
   def get_password
     print "password: "
     STDIN.noecho(&:gets).chop
+    print "\n"
   end
 
   def set_enumerator
@@ -100,14 +107,18 @@ class EmailAgent
     end
     set_enumerator
   end
+  
+  def string_process_message msg
+    msg.gsub(/(\W\n)/,'\1'+"\n")
+  end
 
   def construct_email message
-    s = "From: #{@full_name} <#{@username}>\n"
-    s.concat "To: #{@current_message_to}\n"
-    s.concat "Subject: #{@current_subject}\n"
-    s.concat "Date: #{DateTime.now.rfc2822.to_s}"
-    s.concat "\n"
-    s.concat "#{@current_message_body.gsub(/(\W\n)/,'\1'+"\n")}"
+    mail = Mail.new
+    mail.from = @from_addr
+    mail.to = message[:to]
+    mail.subject = message[:subject]
+    mail.body = string_process_message message[:message]    
+    mail
   end
 
 end
@@ -119,9 +130,10 @@ begin
 
     next unless agent.can_send?
 
-    puts agent.current_message_body
-    puts "Send to #{agent.current_message_to} ( #{agent.count_of_emails_to_company} emails to #{agent.current_company} )? (y/n): "
+    puts agent.current_message.to_s
+    print "Send to #{agent.current_message.to} ( #{agent.count_of_emails_to_company} emails to #{agent.current_company} )? (y/n): "
     confirm = gets.chomp.downcase
+    #STDIN.noecho(&:gets).chop.downcase
 
     if confirm == 'y'
       agent.send_current_message

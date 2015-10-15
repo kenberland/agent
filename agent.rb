@@ -12,7 +12,7 @@ class EmailAgent
 
   # CREATE TABLE sent( created_at datetime, company varchar(255), subject varchar(255), to_addr varchar(255) unique, message text );
   attr_accessor :current_company, :current_message
-  @@prompts = %w/@full_name @username/
+  @@prompts = %w/@full_name @username @password/
 
   def initialize
     process_csv
@@ -23,7 +23,6 @@ class EmailAgent
       instance_variable_set(v, get_value_for(v))
     end
     @from_addr = @full_name + " " + "<" + @username + ">"
-    @password = get_password
   end
 
   def open_database
@@ -70,13 +69,13 @@ class EmailAgent
     end
   end
 
-  private 
+  private
 
   def record_sending_in_db
     values = [DateTime.now.to_s, @current_company, @current_message.subject, @current_message.to, @current_message.to_s]
     @db.execute("insert into sent values ( ?, ?, ?, ?, ? )", values)
   end
-  
+
   def puts_table_rows_confirmation
     @db.execute( "select count(*) from sent" ) do |row|
       puts "Found #{row.first} in sent table"
@@ -108,13 +107,12 @@ class EmailAgent
     end
     set_enumerator
   end
-  
+
   def create_plaintext_message msg
     msg.gsub(/(\W\n)/,'\1'+"\n").split(/\n/).map{|e| ActionView::Base.new.word_wrap e}.join("\n")
   end
 
   def create_rich_message msg
-    # binding.pry
     msg.split(/\n/).map{|e| "<div>#{ActionView::Base.new.word_wrap e}</div><br />"}.join("\n")
   end
 
@@ -153,7 +151,6 @@ begin
     else
       puts "Not sent."
     end
-    
   end
 rescue StopIteration
 

@@ -1,12 +1,31 @@
 #!/usr/bin/env ruby
-require 'io/console'
-require 'csv'
-require 'net/smtp'
-require 'sqlite3'
-require 'date'
-require 'mail'
-require 'pry'
+
+require 'rubygems'
+require 'bundler'
+Bundler.setup(:default, :ci)
+
 require 'action_view'
+require 'csv'
+require 'date'
+require 'erb'
+require 'io/console'
+require 'mail'
+require 'net/smtp'
+require 'nokogiri'
+require 'pry'
+require 'sqlite3'
+require 'openssl'
+require 'base64'
+
+def hex_to_bin(str)
+  [str].pack "H*"
+end
+
+def bin_to_hex(str)
+  str.unpack('C*').map{ |b| "%02X" % b }.join('')
+end
+
+KEY = hex_to_bin(Digest::SHA1.hexdigest('83V3jg%@FOcjskHb#')[0..32])
 
 class EmailAgent
 
@@ -36,17 +55,15 @@ class EmailAgent
   end
 
   def load_next_message
-    message = @enumerator.next
-    @current_company = message[:company]
-    @current_message = construct_email(message)
+    recip = @enumerator.next
+    @current_message = construct_email(recip)
   end
 
   def send_current_message
     puts "Sending message..."
     begin
-      smtp = Net::SMTP.new 'smtp.gmail.com', 587
-      smtp.enable_starttls
-      smtp.start('grnds.com', @username, @password, :login) do |server|
+      smtp = Net::SMTP.new 'localhost', 587
+      smtp.start('localhost') do |server|
         smtp.send_message(@current_message.to_s, @username, @current_message.to)
       end
       record_sending_in_db
@@ -108,27 +125,55 @@ class EmailAgent
     set_enumerator
   end
 
-  def create_plaintext_message msg
-    msg.gsub(/(\W\n)/,'\1'+"\n").split(/\n/).map{|e| ActionView::Base.new.word_wrap e}.join("\n")
+  def aes(m,k,t)
+    (aes = OpenSSL::Cipher::Cipher.new('aes-256-cbc').send(m)).key = Digest::SHA256.digest(k)
+    aes.update(t) << aes.final
   end
 
-  def create_rich_message msg
-    msg.split(/\n/).map{|e| "<div>#{ActionView::Base.new.word_wrap e}</div><br />"}.join("\n")
+  def encrypt(key, text)
+    aes(:encrypt, key, text)
+  end
+
+  def decrypt(key, text)
+    aes(:decrypt, key, text)
+  end
+
+  def create_plaintext_message message
+    body = File.read("message.txt.erb")
+    template = ERB.new(body)
+    template.result(binding)
+  end
+
+  def create_rich_message message
+    body = File.read("message.html.erb")
+    template = ERB.new(body)
+    template.result(binding)
   end
 
   def construct_email message
-    mail = Mail.new
-    plain = Mail::Part.new
-    rich = Mail::Part.new
-    plain.body = create_plaintext_message message[:message]
-    rich.content_type = 'text/html; charset=UTF-8'
-    rich.body = create_rich_message message[:message]
-    mail.text_part = plain
-    mail.html_part = rich
+    plaintext = "#{message[:first]} #{message[:last]} <#{message[:email]}>"
+    message[:cipher_text] = Base64.urlsafe_encode64(encrypt(KEY,plaintext))
 
+    mail = Mail.new
+    mail.to = "#{message[:first]} #{message[:last]} <#{message[:email]}>"
+    mail.subject = "Invitation to Harry Waterman's Bar Mitzvah"
     mail.from = @from_addr
-    mail.to = message[:to]
-    mail.subject = message[:subject]
+    mail.content_type = 'multipart/alternative'
+
+    text_part = Mail::Part.new
+    text_part.body = create_plaintext_message(message)
+    mail.add_part(text_part)
+
+    other_part = Mail::Part.new
+    other_part.content_type = 'multipart/related;'
+    other_part.add_file('./invite-small.jpg')
+    message[:image] = other_part.attachments.first.cid
+
+    html_part = Mail::Part.new
+    html_part.content_type = 'text/html; charset=UTF-8'
+    html_part.body = create_rich_message message
+    other_part.add_part(html_part)
+    mail.add_part(other_part)
 
     mail
   end
@@ -141,16 +186,16 @@ begin
     puts
     next unless agent.can_send?
     puts "*" * 40
-    puts agent.current_message.to_s
-    print "Send to #{agent.current_message.to.first} ( #{agent.count_of_emails_to_company} emails to #{agent.current_company} )? (y/n): "
-    confirm = gets.chomp.downcase
+    # puts agent.current_message.to_s
+    print "Sending to #{agent.current_message.to.first} ( #{agent.count_of_emails_to_company} emails to #{agent.current_company} )? (y/n): "
+    #confirm = gets.chomp.downcase
     #STDIN.noecho(&:gets).chop.downcase
-
-    if confirm == 'y'
+    #if confirm == 'y'
       agent.send_current_message
-    else
-      puts "Not sent."
-    end
+    #else
+    #  puts "Not sent."
+    #end
+    sleep 1.0
   end
 rescue StopIteration
 

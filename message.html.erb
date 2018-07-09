@@ -1,0 +1,32 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html charset=us-ascii">
+    <style>
+.rsvp-button {
+  font: bold 11px Arial;
+  text-decoration: none;
+  background-color: #EEEEEE;
+  color: #333333;
+  padding: 2px 6px 2px 6px;
+  border-top: 1px solid #CCCCCC;
+  border-right: 1px solid #333333;
+  border-bottom: 1px solid #333333;
+  border-left: 1px solid #CCCCCC;
+}
+</style>
+
+  </head>
+  <body>
+    <div>Dear <%= message[:greeting] %>,</div>
+    <div>&nbsp;</div>
+    <div>
+      <img src="cid:<%= message[:image] %>" />
+    </div>
+    <div>
+      &nbsp;
+    </div>
+    <div>
+    <a href="http://hero.org/?email=<%= message[:cipher_text] %>" class="rsvp-button">Click Here to RSVP</a>
+    </div>
+  </body>
+</html>

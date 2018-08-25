@@ -18,6 +18,12 @@
   </head>
   <body>
     <div>Dear <%= message[:greeting] %>,</div>
+    <div>
+      &nbsp;
+    </div>
+    <div>We have not yet heard from you. Please take a moment to RSVP below. If you cannot attend, please take the time to tell us.
+      There's a button specifically for those who cannot attend.
+    </div>
     <div>&nbsp;</div>
     <div>
       <img src="cid:<%= message[:image] %>" />
@@ -26,7 +32,7 @@
       &nbsp;
     </div>
     <div>
-    <a href="http://hero.org/?email=<%= message[:cipher_text] %>" class="rsvp-button">Click Here to RSVP</a>
+      <a href="http://hero.org/?email=<%= message[:cipher_text] %>" class="rsvp-button">Click Here to RSVP</a>
     </div>
   </body>
 </html>

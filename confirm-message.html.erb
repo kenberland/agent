@@ -1,0 +1,47 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html charset=us-ascii">
+    <style>
+.rsvp-button {
+  font: bold 11px Arial;
+  text-decoration: none;
+  background-color: #EEEEEE;
+  color: #333333;
+  padding: 2px 6px 2px 6px;
+  border-top: 1px solid #CCCCCC;
+  border-right: 1px solid #333333;
+  border-bottom: 1px solid #333333;
+  border-left: 1px solid #CCCCCC;
+}
+</style>
+
+  </head>
+  <body>
+    <div>Dear <%= message[:greeting] %>,</div>
+    <div>
+      &nbsp;
+    </div>
+    <div>
+      This is a reminder that Harry's bar mitzvah will take place this Saturday at 10:15 am at Congregation Beth El, 1301 Oxford St, Berkeley, CA. The service starts at 10:15. Please arrive early to find parking.
+    </div>
+    <div>&nbsp;</div>
+    <div>
+      We're excited that you're able to celebrate with us!
+    </div>
+    <div>&nbsp;</div>
+    <div>
+      There will be a delicious luncheon following the service.
+    </div>
+    <div>&nbsp;</div>
+    <div>
+      - Heather &amp; Ken
+    </div>
+    <div>&nbsp;</div>
+    <div>
+      <img src="cid:<%= message[:image] %>" />
+    </div>
+    <div>
+      &nbsp;
+    </div>
+  </body>
+</html>
